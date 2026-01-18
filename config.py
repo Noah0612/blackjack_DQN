@@ -3,6 +3,10 @@ import torch
 # Shared Settings
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# --- MASTER SWITCH ---
+ENABLE_TENSORBOARD = True  
+# ---------------------
+
 # --- 1. DQN Configuration ---
 DQN_CONFIG = {
     "EPISODES": 5000,
@@ -29,14 +33,15 @@ DUELING_CONFIG = {
 
 # --- 3. Double DQN Configuration ---
 DOUBLE_DQN_CONFIG = {
-    "EPISODES": 5000,
+    "EPISODES": 10000,      # Double DQN  learns better with more episodes
     "BATCH_SIZE": 64,
     "GAMMA": 0.95,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.995,
+    "EPS_DECAY": 0.9995,    # Slower decay than DQN 
     "LR": 0.001,
-    "MEMORY_SIZE": 100000
+    "MEMORY_SIZE": 100000,
+    "TARGET_UPDATE": 20     # Update target network every 20 episodes
 }
 
 # --- 4. Value Iteration (VI) Configuration ---

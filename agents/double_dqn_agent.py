@@ -1,63 +1,21 @@
-import gymnasium as gym
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 import random
-from collections import deque
-from agents.base_agent import BaseAgent
+from agents.dqn_agent import DQNAgent, DQN
 from config import DEVICE
 
-# DQN Network Class (Unchanged)
-class DQN(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(DQN, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, 64),
-            nn.ReLU(),
-            nn.Linear(64, output_dim)
-        )
-
-    def forward(self, x):
-        return self.fc(x)
-
-class DQNAgent(BaseAgent):
+class DoubleDQNAgent(DQNAgent):
     def __init__(self, env, config):
         super().__init__(env, config)
-        
-        self.state_dim = 3
-        self.action_dim = env.action_space.n
-        self.device = DEVICE
-        
-        self.memory = deque(maxlen=self.config["MEMORY_SIZE"])
-        self.epsilon = self.config["EPS_START"]
-        
-        # Models
-        self.model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
-
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config["LR"])
-        self.criterion = nn.MSELoss()
-
-    def get_action(self, state, eval_mode=False):
-        if isinstance(state, tuple):
-             state = [state[0], state[1], int(state[2])]
-
-        if not eval_mode and np.random.rand() <= self.epsilon:
-            return random.randrange(self.action_dim)
-        
-        state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        with torch.no_grad():
-            return torch.argmax(self.model(state_t)).item()
+        self.target_update_freq = self.config.get("TARGET_UPDATE", 10)
 
     def train(self):
-        print(f"Starting {self.__class__.__name__} Training...")
+        print("Starting Double DQN Training...")
         episodes = self.config["EPISODES"]
-        target_update = self.config.get("TARGET_UPDATE", 10)
         
         for e in range(episodes):
             state, _ = self.env.reset()
@@ -83,18 +41,18 @@ class DQNAgent(BaseAgent):
                 state = next_state_proc
                 episode_reward += reward
             
-            if e % target_update == 0:
+            if e % self.target_update_freq == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
             # --- SIMPLIFIED LOGGING ---
             avg_loss = np.mean(episode_loss_list) if episode_loss_list else 0
             self.log_metrics(e, episode_reward, avg_loss, self.epsilon)
             # --------------------------
-
+            
             if (e+1) % 500 == 0:
-                print(f"Episode {e+1}/{episodes} - Epsilon: {self.epsilon:.2f} - Reward: {episode_reward} - Avg Loss: {avg_loss:.4f}")
+                print(f"Episode {e+1}/{episodes} - Epsilon: {self.epsilon:.2f} - Reward: {episode_reward}")
 
-        self.save("dqn_blackjack")
+        self.save("double_dqn_blackjack")
 
     def replay(self):
         batch_size = self.config["BATCH_SIZE"]
@@ -111,11 +69,11 @@ class DQNAgent(BaseAgent):
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
         with torch.no_grad():
-            next_q = self.target_model(next_states).max(1)[0].unsqueeze(1)
-            target_q = rewards + (1 - dones) * self.config["GAMMA"] * next_q
+            best_actions = self.model(next_states).argmax(1).unsqueeze(1)
+            next_q_values = self.target_model(next_states).gather(1, best_actions)
+            target_q = rewards + (1 - dones) * self.config["GAMMA"] * next_q_values
         
         current_q = self.model(states).gather(1, actions)
-        
         loss = self.criterion(current_q, target_q)
         self.optimizer.zero_grad()
         loss.backward()

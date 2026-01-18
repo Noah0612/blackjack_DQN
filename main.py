@@ -2,6 +2,7 @@ import argparse
 import gymnasium as gym
 from agents.dqn_agent import DQNAgent
 from agents.dueling_dqn_agent import DuelingDQNAgent
+from agents.double_dqn_agent import DoubleDQNAgent
 from utils.plotting import plot_strategy
 
 # Import all configs
@@ -24,18 +25,16 @@ def main(agent_type):
     elif agent_type == "dueling":
         agent = DuelingDQNAgent(env, config=DUELING_CONFIG)
         
-    elif agent_type == "double_dqn":
-        # Placeholder for your future DoubleDQNAgent
-        # agent = DoubleDQNAgent(env, config=DOUBLE_DQN_CONFIG)
-        raise NotImplementedError("Double DQN not implemented yet.")
+    elif agent_type == "double":
+        agent = DoubleDQNAgent(env, config=DOUBLE_DQN_CONFIG)
         
     elif agent_type == "ppo":
-        # Placeholder for your future PPOAgent
+        # Placeholder for future PPOAgent
         # agent = PPOAgent(env, config=PPO_CONFIG)
         raise NotImplementedError("PPO not implemented yet.")
         
     elif agent_type == "vi":
-        # Placeholder for your future ValueIterationAgent
+        # Placeholder for future ValueIterationAgent
         # agent = ValueIterationAgent(env, config=VI_CONFIG)
         raise NotImplementedError("Value Iteration not implemented yet.")
         
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Updated help string to reflect future capabilities
     parser.add_argument("--agent", type=str, default="dqn", 
-                        help="dqn, dueling, double_dqn, ppo, or vi")
+                        help="dqn, dueling, double, ppo, or vi")
     args = parser.parse_args()
     
     main(args.agent)
