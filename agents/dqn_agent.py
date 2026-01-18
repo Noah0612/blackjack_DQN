@@ -6,9 +6,8 @@ import torch.optim as optim
 import random
 from collections import deque
 from agents.base_agent import BaseAgent
-from config import *
+from config import DEVICE
 
-# The Neural Network
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
@@ -23,30 +22,27 @@ class DQN(nn.Module):
     def forward(self, x):
         return self.fc(x)
 
-# The Agent
 class DQNAgent(BaseAgent):
-    def __init__(self, env):
-        super().__init__(env)
-            
-        self.state_dim = 3 # Player Sum, Dealer Card, Usable Ace
+    def __init__(self, env, config):
+        # Pass config to the BaseAgent
+        super().__init__(env, config)
+        
+        self.state_dim = 3
         self.action_dim = env.action_space.n
         self.device = DEVICE
         
-        # Replay Buffer & Hyperparameters
-        self.memory = deque(maxlen=MEMORY_SIZE)
-        self.epsilon = EPS_START
+        # Access config via self.config (inherited from BaseAgent)
+        self.memory = deque(maxlen=self.config["MEMORY_SIZE"])
+        self.epsilon = self.config["EPS_START"]
         
-        # Neural Network Setup
         self.model = DQN(self.state_dim, self.action_dim).to(self.device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=LR)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config["LR"])
         self.criterion = nn.MSELoss()
 
     def get_action(self, state, eval_mode=False):
-        # Convert tuple state (if necessary) to list for tensor conversion
         if isinstance(state, tuple):
              state = [state[0], state[1], int(state[2])]
 
-        # Epsilon-Greedy Logic
         if not eval_mode and np.random.rand() <= self.epsilon:
             return random.randrange(self.action_dim)
         
@@ -56,7 +52,9 @@ class DQNAgent(BaseAgent):
 
     def train(self):
         print("Starting DQN Training...")
-        for e in range(EPISODES):
+        episodes = self.config["EPISODES"]
+        
+        for e in range(episodes):
             state, _ = self.env.reset()
             state = [state[0], state[1], int(state[2])]
             done = False
@@ -73,18 +71,18 @@ class DQNAgent(BaseAgent):
                 
                 state = next_state_proc
             
-            # Print progress
             if (e+1) % 500 == 0:
-                print(f"Episode {e+1}/{EPISODES} - Epsilon: {self.epsilon:.2f}")
+                print(f"Episode {e+1}/{episodes} - Epsilon: {self.epsilon:.2f}")
 
-        # Save the result using Parent class method
         self.save("dqn_blackjack")
 
     def replay(self):
-        if len(self.memory) < BATCH_SIZE:
+        batch_size = self.config["BATCH_SIZE"]
+        
+        if len(self.memory) < batch_size:
             return
         
-        batch = random.sample(self.memory, BATCH_SIZE)
+        batch = random.sample(self.memory, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         
         states = torch.FloatTensor(np.array(states)).to(self.device)
@@ -93,15 +91,15 @@ class DQNAgent(BaseAgent):
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Q-Learning with Neural Networks
         current_q = self.model(states).gather(1, actions)
         next_q = self.model(next_states).max(1)[0].unsqueeze(1)
-        target_q = rewards + (1 - dones) * GAMMA * next_q
+        
+        target_q = rewards + (1 - dones) * self.config["GAMMA"] * next_q
         
         loss = self.criterion(current_q, target_q.detach())
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        if self.epsilon > EPS_MIN:
-            self.epsilon *= EPS_DECAY
+        if self.epsilon > self.config["EPS_MIN"]:
+            self.epsilon *= self.config["EPS_DECAY"]

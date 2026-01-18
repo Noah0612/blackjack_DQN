@@ -25,17 +25,17 @@ def main(agent_type):
         agent = DuelingDQNAgent(env, config=DUELING_CONFIG)
         
     elif agent_type == "double_dqn":
-        # Placeholder for future DoubleDQNAgent
+        # Placeholder for your future DoubleDQNAgent
         # agent = DoubleDQNAgent(env, config=DOUBLE_DQN_CONFIG)
         raise NotImplementedError("Double DQN not implemented yet.")
         
     elif agent_type == "ppo":
-        # Placeholder for future PPOAgent
+        # Placeholder for your future PPOAgent
         # agent = PPOAgent(env, config=PPO_CONFIG)
         raise NotImplementedError("PPO not implemented yet.")
         
     elif agent_type == "vi":
-        # Placeholder for future ValueIterationAgent
+        # Placeholder for your future ValueIterationAgent
         # agent = ValueIterationAgent(env, config=VI_CONFIG)
         raise NotImplementedError("Value Iteration not implemented yet.")
         

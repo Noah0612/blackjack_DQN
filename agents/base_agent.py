@@ -3,8 +3,9 @@ import os
 import torch
 
 class BaseAgent(ABC):
-    def __init__(self, env):
+    def __init__(self, env, config):
         self.env = env
+        self.config = config  # Store config here for all child classes
         
     @abstractmethod
     def get_action(self, state):
