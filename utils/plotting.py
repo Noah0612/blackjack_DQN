@@ -3,49 +3,108 @@ import seaborn as sns
 import numpy as np
 import torch
 import os
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
 
-def plot_strategy(agent, agent_type, usable_ace=False, title="Hard Totals"):
+def plot_strategy(agent, agent_type):
     """
-    Visualizes the agent's strategy on a heatmap.
-    Works for both Neural Networks (DQN) and Table-based agents (VI).
+    Generates a single, combined professional strategy chart.
+    Stacks Soft Totals (Top) and Hard Totals (Bottom).
     """
-    policy_grid = np.zeros((10, 10)) # Rows: Player 12-21, Cols: Dealer 1-10
+    # --- 1. Define Ranges (Standard Casino Order: High to Low) ---
+    # Soft: 21 down to 12 (A+A)
+    soft_totals = list(range(21, 11, -1)) 
+    # Hard: 21 down to 4
+    hard_totals = list(range(21, 11, -1))
     
-    for player_sum in range(12, 22):
-        for dealer_card in range(1, 11):
-            state = (player_sum, dealer_card, int(usable_ace))
+    dealer_cards = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "A"]
+    
+    # We will build a single matrix for the heatmap
+    # Dimensions: (Rows_Soft + Rows_Hard) x (10 Dealer Cards)
+    total_rows = len(soft_totals) + len(hard_totals)
+    policy_grid = np.zeros((total_rows, len(dealer_cards)))
+    text_grid = [] # Stores "H" or "S"
+    yticklabels = [] # Stores "S 20", "H 18", etc.
+
+    row_idx = 0
+
+    # --- 2. Helper Function to Fill Rows ---
+    def fill_section(totals, is_soft):
+        nonlocal row_idx
+        prefix = "S" if is_soft else "H"
+        
+        for player_sum in totals:
+            yticklabels.append(f"{prefix} {player_sum}")
+            row_text = []
             
-            # ADAPTER: Check if agent is Deep Learning or Table-based
-            if agent_type in ['dqn', 'dueling']:
-                # Prepare state for Neural Network
-                state_input = [state[0], state[1], state[2]]
-                state_tensor = torch.FloatTensor(state_input).to(agent.device)
-                with torch.no_grad():
-                    action = torch.argmax(agent.model(state_tensor)).item()
-            else:
-                # Direct lookup for Table-based agents
-                action = agent.get_action(state, eval_mode=True)
+            for j, dealer_card_str in enumerate(dealer_cards):
+                # Convert "A" to 1 for the environment
+                dealer_val = 1 if dealer_card_str == "A" else int(dealer_card_str)
+                state = (player_sum, dealer_val, int(is_soft))
                 
-            policy_grid[player_sum-12][dealer_card-1] = action
+                # Get Action
+                if agent_type in ['dqn', 'dueling']:
+                    state_input = [state[0], state[1], state[2]]
+                    state_tensor = torch.FloatTensor(state_input).to(agent.device)
+                    with torch.no_grad():
+                        q_values = agent.model(state_tensor)
+                        action = torch.argmax(q_values).item()
+                else:
+                    action = agent.get_action(state)
+                
+                policy_grid[row_idx][j] = action
+                row_text.append("H" if action == 1 else "S")
+            
+            text_grid.append(row_text)
+            row_idx += 1
 
-    # Plotting
-    plt.figure(figsize=(8, 6))
-    ax = sns.heatmap(policy_grid, linewidth=0.5, annot=True, cmap="coolwarm", 
-                    xticklabels=range(1, 11), yticklabels=range(12, 22), cbar=False)
-    ax.set_title(f"{agent_type.upper()} Strategy ({title})")
-    ax.set_xlabel("Dealer Showing Card")
-    ax.set_ylabel("Player Sum")
+    # --- 3. Build the Master Grid ---
+    # Section 1: Soft Totals (Top)
+    fill_section(soft_totals, is_soft=True)
     
+    # Section 2: Hard Totals (Bottom)
+    fill_section(hard_totals, is_soft=False)
+
+    # --- 4. Visualization ---
+    # Colors: Blue=Stand (0), Red=Hit (1)
+    cmap = ListedColormap(['#4A90E2', '#D0021B'])
+    
+    plt.figure(figsize=(12, 14)) # Taller figure to fit everything
+    
+    ax = sns.heatmap(policy_grid, 
+                     linewidths=1.0,
+                     linecolor='white',
+                     annot=np.array(text_grid),
+                     fmt="",
+                     cmap=cmap,
+                     cbar=False,
+                     xticklabels=dealer_cards,
+                     yticklabels=yticklabels)
+
+    # Styling
+    ax.set_title(f"Blackjack Master Strategy ({agent_type.upper()})", fontsize=20, fontweight='bold', pad=20)
+    ax.set_xlabel("Dealer Upcard", fontsize=14, fontweight='bold')
+    ax.set_ylabel("Player Hand", fontsize=14, fontweight='bold')
+    
+    # Add a horizontal line to separate Soft and Hard sections visually
+    # The line should be after the last Soft row
+    sep_line_y = len(soft_totals)
+    ax.hlines([sep_line_y], *ax.get_xlim(), colors='black', linewidth=4)
+
     # Custom Legend
-    from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor='blue', label='Stick (0)'),
-                       Patch(facecolor='red', label='Hit (1)')]
-    ax.legend(handles=legend_elements, loc='upper right')
+    legend_elements = [
+        Patch(facecolor='#D0021B', edgecolor='white', label='Hit'),
+        Patch(facecolor='#4A90E2', edgecolor='white', label='Stand')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.2, 1.01), fontsize=12)
+
+    plt.tight_layout()
     
+    # Save
     if not os.path.exists('assets'):
         os.makedirs('assets')
     
-    filename = f"assets/{agent_type}_strategy_{'soft' if usable_ace else 'hard'}.png"
-    plt.savefig(filename)
-    print(f"Saved {filename}")
+    filename = f"assets/{agent_type}_master_strategy.png"
+    plt.savefig(filename, dpi=300)
+    print(f"Saved master chart to {filename}")
     plt.close()

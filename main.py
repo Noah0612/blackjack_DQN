@@ -11,10 +11,8 @@ def main(agent_type):
     if agent_type == "dqn":
         agent = DQNAgent(env)
     elif agent_type == "dueling":
-        # Placeholder for future DuelingDQN
         raise NotImplementedError("Dueling DQN not implemented yet.")
     elif agent_type == "vi":
-        # Placeholder for future Value Iteration
         raise NotImplementedError("Value Iteration not implemented yet.")
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
@@ -23,11 +21,11 @@ def main(agent_type):
     agent.train()
     
     # Visualize
-    plot_strategy(agent, agent_type, usable_ace=False, title="Hard Totals")
-    plot_strategy(agent, agent_type, usable_ace=True, title="Soft Totals")
+    # FIX: We now call this ONCE, with no extra arguments.
+    # It generates the single "Master Strategy" table automatically.
+    plot_strategy(agent, agent_type)
 
 if __name__ == "__main__":
-    # Allows running like: python main.py --agent dqn
     parser = argparse.ArgumentParser()
     parser.add_argument("--agent", type=str, default="dqn", help="dqn, dueling, or vi")
     args = parser.parse_args()
