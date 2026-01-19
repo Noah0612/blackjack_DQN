@@ -44,10 +44,8 @@ class DoubleDQNAgent(DQNAgent):
             if e % self.target_update_freq == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
-            # --- SIMPLIFIED LOGGING ---
             avg_loss = np.mean(episode_loss_list) if episode_loss_list else 0
             self.log_metrics(e, episode_reward, avg_loss, self.epsilon)
-            # --------------------------
             
             if (e+1) % 500 == 0:
                 print(f"Episode {e+1}/{episodes} - Epsilon: {self.epsilon:.2f} - Reward: {episode_reward}")
@@ -68,6 +66,11 @@ class DoubleDQNAgent(DQNAgent):
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
+        # Normalize
+        states = self.transform_state(states)
+        next_states = self.transform_state(next_states)
+
+        # Double DQN Logic
         with torch.no_grad():
             best_actions = self.model(next_states).argmax(1).unsqueeze(1)
             next_q_values = self.target_model(next_states).gather(1, best_actions)

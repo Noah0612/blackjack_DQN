@@ -1,13 +1,13 @@
 import torch
 
-# Shared Settings
+# General Training Settings
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- MASTER SWITCH ---
-ENABLE_TENSORBOARD = True  
+ENABLE_TENSORBOARD = True  # Set to False to disable logging
 # ---------------------
 
-# --- 1. DQN Configuration ---
+# 1. DQN Configuration
 DQN_CONFIG = {
     "EPISODES": 5000,
     "BATCH_SIZE": 64,
@@ -16,50 +16,49 @@ DQN_CONFIG = {
     "EPS_MIN": 0.01,
     "EPS_DECAY": 0.995,
     "LR": 0.001,
-    "MEMORY_SIZE": 100000
+    "MEMORY_SIZE": 100000,
+    "TARGET_UPDATE": 10
 }
 
-# --- 2. Dueling DQN Configuration ---
+# 2. Dueling DQN Configuration (Tuned for stability)
 DUELING_CONFIG = {
-    "EPISODES": 6000,
+    "EPISODES": 50000,       # More episodes
     "BATCH_SIZE": 64,
     "GAMMA": 0.99,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.995,
-    "LR": 0.0005,
-    "MEMORY_SIZE": 100000
+    "EPS_DECAY": 0.9999,     # Slower decay
+    "LR": 0.0001,            # Lower learning rate
+    "MEMORY_SIZE": 100000,
+    "TARGET_UPDATE": 10
 }
 
-# --- 3. Double DQN Configuration ---
+# 3. Double DQN Configuration
 DOUBLE_DQN_CONFIG = {
-    "EPISODES": 10000,      # Double DQN  learns better with more episodes
+    "EPISODES": 10000,
     "BATCH_SIZE": 64,
     "GAMMA": 0.95,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.9995,    # Slower decay than DQN 
+    "EPS_DECAY": 0.9995,
     "LR": 0.001,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 20     # Update target network every 20 episodes
+    "TARGET_UPDATE": 20
 }
 
-# --- 4. Value Iteration (VI) Configuration ---
-# VI is not a gradient-based method, so it doesn't need LR or Batch Size.
+# 4. Future Configs
 VI_CONFIG = {
     "GAMMA": 0.99,
-    "THETA": 1e-8,       # Convergence threshold
+    "THETA": 1e-8,
     "MAX_ITERATIONS": 10000
 }
 
-# --- 5. PPO Configuration ---
-# PPO is an On-Policy Gradient method with different hyperparameters.
 PPO_CONFIG = {
-    "EPISODES": 10000,   # PPO often needs more episodes
+    "EPISODES": 10000,
     "GAMMA": 0.99,
-    "LR_ACTOR": 0.0003,  # Learning rate for policy
-    "LR_CRITIC": 0.001,  # Learning rate for value function
-    "K_EPOCHS": 4,       # Update epochs per rollout
-    "EPS_CLIP": 0.2,     # PPO Clipping parameter
-    "UPDATE_TIMESTEP": 2000 # Update policy every n timesteps
+    "LR_ACTOR": 0.0003,
+    "LR_CRITIC": 0.001,
+    "K_EPOCHS": 4,
+    "EPS_CLIP": 0.2,
+    "UPDATE_TIMESTEP": 2000
 }

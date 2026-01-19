@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from agents.dqn_agent import DQNAgent
+from agents.dqn_agent import DQNAgent 
 from config import DEVICE
 
 class DuelingNetwork(nn.Module):
@@ -18,13 +18,13 @@ class DuelingNetwork(nn.Module):
         self.value_stream = nn.Sequential(
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(32, 1) 
         )
         
         self.advantage_stream = nn.Sequential(
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, output_dim)
+            nn.Linear(32, output_dim) 
         )
 
     def forward(self, x):
@@ -36,11 +36,16 @@ class DuelingNetwork(nn.Module):
 
 class DuelingDQNAgent(DQNAgent):
     def __init__(self, env, config):
-        # Pass config to DQNAgent, which passes it to BaseAgent
+        # Initialize parent
         super().__init__(env, config)
         
-        # Override the model
+        # Override Model
         self.model = DuelingNetwork(self.state_dim, self.action_dim).to(self.device)
         
-        # Re-attach optimizer using the LR from the config
+        # Initialize Target Model for Dueling
+        self.target_model = DuelingNetwork(self.state_dim, self.action_dim).to(self.device)
+        self.target_model.load_state_dict(self.model.state_dict())
+        self.target_model.eval()
+        
+        # Re-attach optimizer
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config["LR"])

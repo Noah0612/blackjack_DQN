@@ -8,7 +8,6 @@ from collections import deque
 from agents.base_agent import BaseAgent
 from config import DEVICE
 
-# DQN Network Class (Unchanged)
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
@@ -34,7 +33,7 @@ class DQNAgent(BaseAgent):
         self.memory = deque(maxlen=self.config["MEMORY_SIZE"])
         self.epsilon = self.config["EPS_START"]
         
-        # Models
+        # Networks (Policy & Target)
         self.model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
@@ -50,7 +49,10 @@ class DQNAgent(BaseAgent):
         if not eval_mode and np.random.rand() <= self.epsilon:
             return random.randrange(self.action_dim)
         
+        # Normalize Input
         state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        state_t = self.transform_state(state_t) 
+        
         with torch.no_grad():
             return torch.argmax(self.model(state_t)).item()
 
@@ -86,10 +88,9 @@ class DQNAgent(BaseAgent):
             if e % target_update == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
-            # --- SIMPLIFIED LOGGING ---
+            # Log Metrics
             avg_loss = np.mean(episode_loss_list) if episode_loss_list else 0
             self.log_metrics(e, episode_reward, avg_loss, self.epsilon)
-            # --------------------------
 
             if (e+1) % 500 == 0:
                 print(f"Episode {e+1}/{episodes} - Epsilon: {self.epsilon:.2f} - Reward: {episode_reward} - Avg Loss: {avg_loss:.4f}")
@@ -109,6 +110,10 @@ class DQNAgent(BaseAgent):
         rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
+
+        # Normalize Batch
+        states = self.transform_state(states)
+        next_states = self.transform_state(next_states)
 
         with torch.no_grad():
             next_q = self.target_model(next_states).max(1)[0].unsqueeze(1)
