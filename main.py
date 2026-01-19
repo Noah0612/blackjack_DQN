@@ -1,7 +1,17 @@
 import argparse
 import gymnasium as gym
 from agents.dqn_agent import DQNAgent
+from agents.dueling_dqn_agent import DuelingDQNAgent
 from utils.plotting import plot_strategy
+
+# Import all configs
+from config import (
+    DQN_CONFIG, 
+    DUELING_CONFIG, 
+    DOUBLE_DQN_CONFIG, 
+    VI_CONFIG, 
+    PPO_CONFIG
+)
 
 def main(agent_type):
     # Initialize Environment
@@ -9,13 +19,26 @@ def main(agent_type):
     
     # Agent Factory
     if agent_type == "dqn":
-        agent = DQNAgent(env)
+        agent = DQNAgent(env, config=DQN_CONFIG)
+        
     elif agent_type == "dueling":
-        # Placeholder for future DuelingDQN
-        raise NotImplementedError("Dueling DQN not implemented yet.")
+        agent = DuelingDQNAgent(env, config=DUELING_CONFIG)
+        
+    elif agent_type == "double_dqn":
+        # Placeholder for future DoubleDQNAgent
+        # agent = DoubleDQNAgent(env, config=DOUBLE_DQN_CONFIG)
+        raise NotImplementedError("Double DQN not implemented yet.")
+        
+    elif agent_type == "ppo":
+        # Placeholder for future PPOAgent
+        # agent = PPOAgent(env, config=PPO_CONFIG)
+        raise NotImplementedError("PPO not implemented yet.")
+        
     elif agent_type == "vi":
-        # Placeholder for future Value Iteration
+        # Placeholder for future ValueIterationAgent
+        # agent = ValueIterationAgent(env, config=VI_CONFIG)
         raise NotImplementedError("Value Iteration not implemented yet.")
+        
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
 
@@ -23,13 +46,13 @@ def main(agent_type):
     agent.train()
     
     # Visualize
-    plot_strategy(agent, agent_type, usable_ace=False, title="Hard Totals")
-    plot_strategy(agent, agent_type, usable_ace=True, title="Soft Totals")
+    plot_strategy(agent, agent_type)
 
 if __name__ == "__main__":
-    # Allows running like: python main.py --agent dqn
     parser = argparse.ArgumentParser()
-    parser.add_argument("--agent", type=str, default="dqn", help="dqn, dueling, or vi")
+    # Updated help string to reflect future capabilities
+    parser.add_argument("--agent", type=str, default="dqn", 
+                        help="dqn, dueling, double_dqn, ppo, or vi")
     args = parser.parse_args()
     
     main(args.agent)

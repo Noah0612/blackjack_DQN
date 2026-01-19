@@ -27,7 +27,7 @@ class DQN(nn.Module):
 class DQNAgent(BaseAgent):
     def __init__(self, env):
         super().__init__(env)
-        
+            
         self.state_dim = 3 # Player Sum, Dealer Card, Usable Ace
         self.action_dim = env.action_space.n
         self.device = DEVICE

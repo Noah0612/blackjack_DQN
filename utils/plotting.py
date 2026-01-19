@@ -3,49 +3,44 @@ import seaborn as sns
 import numpy as np
 import torch
 import os
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
 
-def plot_strategy(agent, agent_type, usable_ace=False, title="Hard Totals"):
+def plot_strategy(agent, agent_type):
     """
-    Visualizes the agent's strategy on a heatmap.
-    Works for both Neural Networks (DQN) and Table-based agents (VI).
+    Generates a single, combined professional strategy chart.
+    Stacks Soft Totals (Top) and Hard Totals (Bottom).
     """
-    policy_grid = np.zeros((10, 10)) # Rows: Player 12-21, Cols: Dealer 1-10
+    # --- 1. Define Ranges (Standard Casino Order: High to Low) ---
+    # Soft: 21 down to 12 (A+A)
+    soft_totals = list(range(21, 11, -1)) 
+    # Hard: 21 down to 4
+    hard_totals = list(range(21, 3, -1))
     
-    for player_sum in range(12, 22):
-        for dealer_card in range(1, 11):
-            state = (player_sum, dealer_card, int(usable_ace))
+    dealer_cards = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "A"]
+    
+    # We will build a single matrix for the heatmap
+    # Dimensions: (Rows_Soft + Rows_Hard) x (10 Dealer Cards)
+    total_rows = len(soft_totals) + len(hard_totals)
+    policy_grid = np.zeros((total_rows, len(dealer_cards)))
+    text_grid = [] # Stores "H" or "S"
+    yticklabels = [] # Stores "S 20", "H 18", etc.
+
+    row_idx = 0
+
+    # --- 2. Helper Function to Fill Rows ---
+    def fill_section(totals, is_soft):
+        nonlocal row_idx
+        prefix = "S" if is_soft else "H"
+        
+        for player_sum in totals:
+            yticklabels.append(f"{prefix} {player_sum}")
+            row_text = []
             
-            # ADAPTER: Check if agent is Deep Learning or Table-based
-            if agent_type in ['dqn', 'dueling']:
-                # Prepare state for Neural Network
-                state_input = [state[0], state[1], state[2]]
-                state_tensor = torch.FloatTensor(state_input).to(agent.device)
-                with torch.no_grad():
-                    action = torch.argmax(agent.model(state_tensor)).item()
-            else:
-                # Direct lookup for Table-based agents
-                action = agent.get_action(state, eval_mode=True)
+            for j, dealer_card_str in enumerate(dealer_cards):
+                # Convert "A" to 1 for the environment
+                dealer_val = 1 if dealer_card_str == "A" else int(dealer_card_str)
+                state = (player_sum, dealer_val, int(is_soft))
                 
-            policy_grid[player_sum-12][dealer_card-1] = action
-
-    # Plotting
-    plt.figure(figsize=(8, 6))
-    ax = sns.heatmap(policy_grid, linewidth=0.5, annot=True, cmap="coolwarm", 
-                    xticklabels=range(1, 11), yticklabels=range(12, 22), cbar=False)
-    ax.set_title(f"{agent_type.upper()} Strategy ({title})")
-    ax.set_xlabel("Dealer Showing Card")
-    ax.set_ylabel("Player Sum")
-    
-    # Custom Legend
-    from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor='blue', label='Stick (0)'),
-                       Patch(facecolor='red', label='Hit (1)')]
-    ax.legend(handles=legend_elements, loc='upper right')
-    
-    if not os.path.exists('assets'):
-        os.makedirs('assets')
-    
-    filename = f"assets/{agent_type}_strategy_{'soft' if usable_ace else 'hard'}.png"
-    plt.savefig(filename)
-    print(f"Saved {filename}")
-    plt.close()
+                # Get Action
+                # We check specifically for neural network agents to use the model directly
