@@ -10,7 +10,7 @@ class BaseAgent(ABC):
         self.env = env
         self.config = config
         
-        # --- Global TensorBoard Logic ---
+        # Initialize SummaryWriter only if global toggle is True
         if ENABLE_TENSORBOARD:
             current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             agent_name = self.__class__.__name__
@@ -23,16 +23,17 @@ class BaseAgent(ABC):
     
     def transform_state(self, state_tensor):
         """
-        Normalizes the state tensor.
-        Idx 0 (Player Sum): Divided by 21.0
-        Idx 1 (Dealer Card): Divided by 10.0
+        Applies scaling to specific feature dimensions.
+        Input Shape: [Batch_Size, 3] or [1, 3]
         """
         norm_state = state_tensor.clone()
+        # In-place division: Column 0 / 21.0, Column 1 / 10.0
         norm_state[:, 0] = norm_state[:, 0] / 21.0
         norm_state[:, 1] = norm_state[:, 1] / 10.0
         return norm_state
 
     def log_metrics(self, episode, reward, loss, epsilon):
+        # Writes scalars to event file if writer exists
         if self.writer:
             self.writer.add_scalar("Reward/Episode", reward, episode)
             self.writer.add_scalar("Loss/Episode", loss, episode)
@@ -50,6 +51,7 @@ class BaseAgent(ABC):
         if not os.path.exists('models'):
             os.makedirs('models')
         
+        # Saves state_dict for PyTorch models or npy array for tables
         if hasattr(self, 'model'):
             torch.save(self.model.state_dict(), f"models/{filename}.pth")
             print(f"Model saved to models/{filename}.pth")

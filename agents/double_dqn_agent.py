@@ -66,11 +66,10 @@ class DoubleDQNAgent(DQNAgent):
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Normalize
         states = self.transform_state(states)
         next_states = self.transform_state(next_states)
 
-        # Double DQN Logic
+        # Double DQN: Argmax on Online Net, Gather on Target Net
         with torch.no_grad():
             best_actions = self.model(next_states).argmax(1).unsqueeze(1)
             next_q_values = self.target_model(next_states).gather(1, best_actions)

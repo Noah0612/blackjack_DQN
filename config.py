@@ -1,39 +1,37 @@
 import torch
 
-# General Training Settings
+# Device selection: CUDA if available, else CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- MASTER SWITCH ---
-ENABLE_TENSORBOARD = True  # Set to False to disable logging
-# ---------------------
+# Master switch to enable/disable TensorBoard logging globally
+ENABLE_TENSORBOARD = True 
 
-# 1. DQN Configuration
+# --- Agent Configurations ---
+
 DQN_CONFIG = {
-    "EPISODES": 5000,
-    "BATCH_SIZE": 64,
-    "GAMMA": 0.95,
+    "EPISODES": 50000,
+    "BATCH_SIZE": 256,
+    "GAMMA": 1,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
     "EPS_DECAY": 0.995,
-    "LR": 0.001,
+    "LR": 0.003,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 10
+    "TARGET_UPDATE": 500
 }
 
-# 2. Dueling DQN Configuration (Tuned for stability)
 DUELING_CONFIG = {
-    "EPISODES": 50000,       # More episodes
+    "EPISODES": 50000,
     "BATCH_SIZE": 64,
     "GAMMA": 0.99,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.9999,     # Slower decay
-    "LR": 0.0001,            # Lower learning rate
+    "EPS_DECAY": 0.9999,
+    "LR": 0.0001,
     "MEMORY_SIZE": 100000,
     "TARGET_UPDATE": 10
 }
 
-# 3. Double DQN Configuration
 DOUBLE_DQN_CONFIG = {
     "EPISODES": 10000,
     "BATCH_SIZE": 64,
@@ -46,7 +44,6 @@ DOUBLE_DQN_CONFIG = {
     "TARGET_UPDATE": 20
 }
 
-# 4. Future Configs
 VI_CONFIG = {
     "GAMMA": 0.99,
     "THETA": 1e-8,

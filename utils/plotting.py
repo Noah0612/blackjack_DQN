@@ -1,5 +1,6 @@
 import matplotlib
-matplotlib.use('Agg') # Non-interactive backend
+# Use Agg backend for non-interactive environments (WSL/Server)
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -34,11 +35,11 @@ def plot_strategy(agent, agent_type):
                 dealer_val = 1 if dealer_card_str == "A" else int(dealer_card_str)
                 state = (player_sum, dealer_val, int(is_soft))
                 
-                # Get Action
-                if agent_type in ['dqn', 'dueling', 'double_dqn']:
+                # Check agent type for Input format: Tensor vs Tuple
+                if agent_type in ['dqn', 'dueling', 'double_dqn', 'ppo']:
                     state_input = [state[0], state[1], state[2]]
                     
-                    # Create Batch Tensor
+                    # Create Batch Tensor: [3] -> [1, 3]
                     state_tensor = torch.FloatTensor(state_input).unsqueeze(0).to(agent.device)
                     
                     # Apply Normalization
@@ -47,9 +48,15 @@ def plot_strategy(agent, agent_type):
                     with torch.no_grad():
                         q_values = agent.model(state_tensor)
                         action = torch.argmax(q_values).item()
+                
+                elif agent_type == 'vi':
+                    # VI Agent requires raw tuple state
+                    action = agent.get_action(state)
+                    
                 else:
                     action = agent.get_action(state)
                 
+                # Fill grid matrix
                 policy_grid[row_idx][j] = action
                 row_text.append("H" if action == 1 else "S")
             
