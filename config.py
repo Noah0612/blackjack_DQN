@@ -50,12 +50,16 @@ VI_CONFIG = {
     "MAX_ITERATIONS": 10000
 }
 
+# --- 5. PPO Configuration ---
+# PPO is an On-Policy Gradient method 
 PPO_CONFIG = {
-    "EPISODES": 10000,
-    "GAMMA": 0.99,
-    "LR_ACTOR": 0.0003,
-    "LR_CRITIC": 0.001,
-    "K_EPOCHS": 4,
-    "EPS_CLIP": 0.2,
-    "UPDATE_TIMESTEP": 2000
+    "GAMMA": 1,
+    "HIDDEN_DIM": 64,
+    "POLICY_LR": 0.0003,  # Learning rate for policy
+    "VALUE_LR": 0.001,    # Learning rate for value function,
+    "k_POLICY_UPDATES": 500,  # small k in PPO algorithm
+    "K_UPDATE_EPOCHS": 10,  # number of epochs per update (reuse data)
+    "EPS_CLIP": 0.2,     # PPO Clipping parameter
+    "MINIBATCH_SIZE": 128,  # Minibatch size for updates
+    "EPISODES_PER_BATCH": 2000  # number of steps to collect per update
 }
