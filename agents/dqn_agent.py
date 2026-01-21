@@ -40,7 +40,7 @@ class DQNAgent(BaseAgent):
         self.target_model.eval()
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config["LR"])
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.SmoothL1Loss()
 
     def get_action(self, state, eval_mode=False):
         if isinstance(state, tuple):

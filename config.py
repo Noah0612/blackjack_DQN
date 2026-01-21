@@ -9,15 +9,15 @@ ENABLE_TENSORBOARD = True
 # --- Agent Configurations ---
 
 DQN_CONFIG = {
-    "EPISODES": 5000,
-    "BATCH_SIZE": 64,
-    "GAMMA": 0.95,
+    "EPISODES": 50000,
+    "BATCH_SIZE": 256,
+    "GAMMA": 1,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
     "EPS_DECAY": 0.995,
-    "LR": 0.001,
+    "LR": 0.003,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 10
+    "TARGET_UPDATE": 500
 }
 
 DUELING_CONFIG = {
