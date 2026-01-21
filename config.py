@@ -56,13 +56,18 @@ VI_CONFIG = {
 # --- 5. PPO Configuration ---
 # PPO is an On-Policy Gradient method 
 PPO_CONFIG = {
-    "GAMMA": 1,
+    "GAMMA": 0.99,
+    "STATE_DIM": 3,
     "HIDDEN_DIM": 64,
-    "POLICY_LR": 0.0003,  # Learning rate for policy
-    "VALUE_LR": 0.001,    # Learning rate for value function,
-    "k_POLICY_UPDATES": 500,  # small k in PPO algorithm
-    "K_UPDATE_EPOCHS": 10,  # number of epochs per update (reuse data)
+    "POLICY_LR": 3e-5,  # Learning rate for policy
+    "VALUE_LR": 1e-3,    # Learning rate for value function
+    "LAMBDA": 0.95,     #parameter of GAE(lambda) advantage estimator
+    "ENTROPY_COEF": 0.01, # for entropy bonus
+    "k_POLICY_UPDATES": 100,  # small k in PPO algorithm
+    "K_UPDATE_EPOCHS": 4,  # number of epochs per update (reuse data)
     "EPS_CLIP": 0.2,     # PPO Clipping parameter
-    "MINIBATCH_SIZE": 128,  # Minibatch size for updates
-    "EPISODES_PER_BATCH": 2000  # number of steps to collect per update
+    "VALUE_CLIP" : 0.2, #clipping value function 
+    "MINIBATCH_SIZE": 256,  # Minibatch size for updates
+    "TARGET_KL": 10000000,    # Target KL divergence for early stopping (use big number to "disable")
+    "EPISODES_PER_BATCH": 2_000  # number of steps to collect per update |D_k|
 }

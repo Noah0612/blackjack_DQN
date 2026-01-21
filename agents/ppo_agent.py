@@ -31,11 +31,13 @@ class MLP(nn.Module):
 
 class PPOAgent(BaseAgent):
     def __init__(self, env, config=PPO_CONFIG):
-        super().__init__(env)
+        super().__init__(env, config)
         self.config = config
         self.device = DEVICE
-        input_dim = env.observation_space.shape[0]
+        input_dim = config["STATE_DIM"]
         hidden_dim = config["HIDDEN_DIM"]
+
+        self.total_env_steps = 0
 
         #define the actor : policy
         policy_output_dim = env.action_space.n
@@ -63,17 +65,33 @@ class PPOAgent(BaseAgent):
         print("Starting PPO Training...")
 
         for k in range(self.config["k_POLICY_UPDATES"]):
+
+            print(
+                f"--- Policy Update {k+1}/{self.config['k_POLICY_UPDATES']} ---")
+
             # collect trajectories using current policy --> step 3
             all_states, all_actions, all_rewards, all_old_log_probs, all_values = self._batch()
             # compute returns and advantages --> steps 4 and 5
             all_returns = []
             all_advantages = []
             for rewards, values in zip(all_rewards, all_values):
-                returns = self._compute_returns(rewards)
-                advantages = self._compute_advantages(
-                    returns, torch.cat(values))
+                # returns = self._compute_returns(rewards)
+                # advantages = self._compute_advantages(
+                #     returns, torch.cat(values))
+                advantages, returns = self._compute_gae(rewards, values)
                 all_returns.append(returns)
                 all_advantages.append(advantages)
+
+            # normalize advantages
+            all_advantages = torch.cat(all_advantages).to(self.device)
+            if all_advantages.numel() > 1:
+                all_advantages = (all_advantages - all_advantages.mean()) / \
+                     (all_advantages.std(unbiased=False) + 1e-8)
+                if self.writer: 
+                    self.writer.add_scalar("Debug/AdvStd", advantages.std().item(), self.total_env_steps)
+            else:
+                all_advantages = all_advantages - all_advantages.mean()
+
 
             # create minibatches for SGD
             results_dataset = TensorDataset(
@@ -82,8 +100,8 @@ class PPOAgent(BaseAgent):
                 torch.FloatTensor(np.concatenate(
                     all_old_log_probs)).to(self.device),
                 torch.FloatTensor(np.concatenate(all_returns)).to(self.device),
-                torch.FloatTensor(np.concatenate(
-                    all_advantages)).to(self.device)
+                torch.FloatTensor(all_advantages).to(self.device),
+                torch.FloatTensor(np.concatenate([v[:-1] for v in all_values])).to(self.device)
             )
             dataloader = DataLoader(
                 results_dataset,
@@ -92,28 +110,80 @@ class PPOAgent(BaseAgent):
             )
 
             # update policy and value networks for K epochs --> steps 6 and 7
-            for _ in range(self.config["K_UPDATE_EPOCHS"]):
-                for batch_states, batch_actions, batch_old_log_probs, batch_returns, batch_advantages in dataloader:
+            for epoch in range(self.config["K_UPDATE_EPOCHS"]):
+                stop = False
+                for batch_states, batch_actions, batch_old_log_probs, batch_returns, batch_advantages, batch_values in dataloader:
                     # Get current policy log probs
                     logits = self.policy_net(batch_states)
                     dist = torch.distributions.Categorical(logits=logits)
+                    entropy = dist.entropy().mean()
                     batch_log_probs = dist.log_prob(batch_actions)
                     batch_advantages = batch_advantages.detach()  # no grad on advantages
                     # Compute surrogate loss
-                    policy_loss = self._surrogate_loss(
-                        batch_old_log_probs, batch_log_probs, batch_advantages)
-                    # Update policy network
+                    policy_loss, surrogate, approx_kl, clip_frac = self._compute_loss(
+                        batch_old_log_probs, 
+                        batch_log_probs, 
+                        batch_advantages,
+                        entropy
+                        )
+
+                    #update policy 
                     self.policy_optimizer.zero_grad()
                     policy_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 0.5)
                     self.policy_optimizer.step()
+
+                    with torch.no_grad():
+                        new_logits = self.policy_net(batch_states)
+                        new_dist = torch.distributions.Categorical(logits=new_logits)
+                        new_log_probs = new_dist.log_prob(batch_actions)
+                        approx_kl = (batch_old_log_probs - new_log_probs).mean()
+
+                    if approx_kl > self.config["TARGET_KL"]:
+                        print(f"Early stopping at epoch {epoch} due to KL.")
+                        stop = True
+                        break
+
                     # Compute value loss
-                    values = self.value_net(batch_states).squeeze()
-                    value_loss = nn.MSELoss()(values, batch_returns)
+                    value_pred = self.value_net(batch_states).squeeze()
+                    value_pred_old = batch_values.detach()
+
+                    value_clipped = value_pred_old + torch.clamp(
+                        value_pred - value_pred_old,
+                        -self.config["VALUE_CLIP"],
+                        self.config["VALUE_CLIP"]
+                    )
+
+                    value_loss = torch.max(
+                        (value_pred - batch_returns) ** 2,
+                        (value_clipped - batch_returns) ** 2
+                    ).mean()
                     # Update value network
                     self.value_optimizer.zero_grad()
                     value_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.value_net.parameters(), 0.5)
                     self.value_optimizer.step()
+
+
             
+                    #logging 
+                    if self.writer:
+                        self.writer.add_scalar(
+                            "Loss/Policy", policy_loss.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Loss/Value", value_loss.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Surrogate", surrogate.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Approx_KL", approx_kl.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Clip_Fraction", clip_frac.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Entropy", entropy.item(), self.total_env_steps)
+
+                if stop :
+                    break
+
     """
     run the current policy on the environment to collect trajectories
     --> step 3 in the PPO algorithm
@@ -127,8 +197,8 @@ class PPOAgent(BaseAgent):
         state, _ = self.env.reset()
         done = False
         while not done:
-            norm_state = super().transform_state(state)
-            state_t = torch.FloatTensor(norm_state).unsqueeze(0).to(self.device)
+            raw_state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            state_t = super().transform_state(raw_state_t)
             with torch.no_grad():
                 # Get action probabilities from *current* policy
                 logits = self.policy_net(state_t)
@@ -141,13 +211,23 @@ class PPOAgent(BaseAgent):
             # Step the environment
             next_state, reward, terminated, truncated, _ = self.env.step(action.item())
             done = terminated or truncated
+
             # Store the transition
-            states.append(state)
+            states.append(state_t)
             actions.append(action.item())
             rewards.append(reward)
             log_probs.append(log_prob)
-            values.append(value)
+            values.append(value.detach().squeeze())
             state = next_state
+
+        # bootstrap value for terminal state
+        with torch.no_grad():
+            raw_state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            state_t = super().transform_state(raw_state_t)
+            last_value = self.value_net(state_t)
+
+        values.append(last_value.detach().squeeze())
+
         return states, actions, rewards, log_probs, values
 
     """
@@ -168,6 +248,7 @@ class PPOAgent(BaseAgent):
             all_rewards.append(rewards)
             all_log_probs.append(log_probs)
             all_values.append(values)
+        self.total_env_steps += sum(len(r) for r in all_rewards)
         return all_states, all_actions, all_rewards, all_log_probs, all_values
 
     """
@@ -191,18 +272,67 @@ class PPOAgent(BaseAgent):
     """
     def _compute_advantages(self, returns, values):
         advantages = returns - values.squeeze()
-        # Normalize advantages
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         return advantages
+
+
+    """
+    alternate version : use GAE(lambda) estimator https://arxiv.org/abs/1506.02438
+    """
+    def _compute_gae(self, rewards, values):
+        gamma = self.config["GAMMA"]
+        lam = self.config["LAMBDA"]
+
+        # convert to tensor ONCE
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=values[0].device)
+        values = torch.stack(values)  # shape [T+1]
+
+        T = rewards.shape[0]
+        advantages = torch.zeros(T, device=values.device)
+
+        gae = 0.0
+        for t in reversed(range(T)):
+            delta = rewards[t] + gamma * values[t + 1] - values[t]
+            gae = delta + gamma * lam * gae
+            advantages[t] = gae
+
+        returns = advantages + values[:-1]  
+        return advantages, returns
+
+
+        
+
 
     """
     calculate the surrogate loss with clipping,
     --> step 6 in the PPO algorithm
+    optionnaly add an entropy bonus
     """
-    def _surrogate_loss(self, old_log_probs, log_probs, advantages):
+    def _compute_loss(self, old_log_probs, log_probs, advantages, entropy):
         ratios = torch.exp(log_probs - old_log_probs.detach())
+        if self.writer :
+            self.writer.add_scalar("Debug/RatioMean", ratios.mean().item(), self.total_env_steps)
+            self.writer.add_scalar("Debug/RatioStd", ratios.std().item(), self.total_env_steps)
+
         surr1 = ratios * advantages
         surr2 = torch.clamp(
             ratios, 1 - self.config["EPS_CLIP"], 1 + self.config["EPS_CLIP"]) * advantages
-        loss = -torch.min(surr1, surr2).mean()
-        return loss
+        surrogate = torch.min(surr1, surr2)
+        entropy_bonus = self.config["ENTROPY_COEF"] * entropy
+        loss = -(surrogate + entropy_bonus).mean()
+        approx_kl = (old_log_probs - log_probs).mean()
+        clip_frac = ((ratios - 1.0).abs() >
+                     self.config["EPS_CLIP"]).float().mean()
+        return loss, surrogate.mean(), approx_kl, clip_frac
+
+    """
+    get action from policy for a given state
+    --> used for evaluation
+    """
+    def get_action(self, state):
+        raw_state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        state_t = super().transform_state(raw_state_t)
+        with torch.no_grad():
+            logits = self.policy_net(state_t)
+            dist = torch.distributions.Categorical(logits=logits)
+            action = dist.sample()
+        return action.item()

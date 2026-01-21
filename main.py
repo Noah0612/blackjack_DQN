@@ -3,8 +3,9 @@ import gymnasium as gym
 from agents.dqn_agent import DQNAgent
 from agents.dueling_dqn_agent import DuelingDQNAgent
 from agents.double_dqn_agent import DoubleDQNAgent
-from utils.plotting import plot_strategy
-from config import DQN_CONFIG, DUELING_CONFIG, DOUBLE_DQN_CONFIG
+from agents.ppo_agent import PPOAgent
+from utils.plotting import plot_strategy, plot_ppo_strategy
+from config import DQN_CONFIG, DUELING_CONFIG, DOUBLE_DQN_CONFIG, PPO_CONFIG
 
 def main(agent_type):
     # Initialize Environment
@@ -23,7 +24,7 @@ def main(agent_type):
     elif agent_type == "vi":
         raise NotImplementedError("Value Iteration not implemented yet.")
     elif agent_type == "ppo":
-        raise NotImplementedError("PPO not implemented yet.")
+        agent = PPOAgent(env, config=PPO_CONFIG)
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
 
@@ -31,6 +32,20 @@ def main(agent_type):
     agent.train()
     
     # Visualize
+    if agent_type == "ppo":
+        plot_ppo_strategy(
+            agent,
+            usable_ace=False,
+            save_dir="assets",
+            filename="ppo_hard_strategy.png"
+        )
+        plot_ppo_strategy(
+            agent,
+            usable_ace=True,
+            save_dir="assets",
+            filename="ppo_soft_strategy.png"
+        )
+    
     plot_strategy(agent, agent_type)
 
 if __name__ == "__main__":

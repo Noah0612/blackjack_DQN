@@ -96,3 +96,90 @@ def plot_strategy(agent, agent_type):
     plt.savefig(filename, dpi=300)
     print(f"SUCCESS: Saved master chart to {filename}")
     plt.close()
+
+
+def plot_ppo_strategy(
+    agent,
+    usable_ace: bool,
+    save_dir: str,
+    filename: str,
+    device=None
+):
+    """
+    Plot PPO policy as a probability heatmap.
+    Color intensity = P(Hit | state)
+    Each cell also shows the numeric probability.
+    """
+
+    if device is None:
+        device = agent.device
+
+    # Blackjack conventions (same as your existing plot)
+    player_sums = list(range(12, 22))      # 12 → 21
+    dealer_cards = [2, 3, 4, 5, 6, 7, 8, 9, 10, 1]  # Ace = 1
+
+    heatmap = np.zeros((len(player_sums), len(dealer_cards)))
+
+    # ---- compute probabilities ----
+    for i, ps in enumerate(player_sums):
+        for j, dc in enumerate(dealer_cards):
+            state = np.array([ps, dc, int(usable_ace)], dtype=np.float32)
+            state_t = torch.tensor(state).unsqueeze(0).to(device)
+
+            with torch.no_grad():
+                logits = agent.policy_net(state_t)
+                probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
+
+            # Convention: action 0 = Stand, 1 = Hit
+            heatmap[i, j] = probs[1]   # P(Hit)
+
+    # ---- plotting ----
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    im = ax.imshow(
+        heatmap,
+        cmap="RdBu_r",
+        vmin=0.0,
+        vmax=1.0,
+        aspect="auto"
+    )
+
+    # Axis labels
+    ax.set_xticks(np.arange(len(dealer_cards)))
+    ax.set_xticklabels(["2", "3", "4", "5", "6", "7", "8", "9", "10", "A"])
+    ax.set_yticks(np.arange(len(player_sums)))
+    ax.set_yticklabels(player_sums)
+
+    ax.set_xlabel("Dealer Upcard")
+    ax.set_ylabel("Player Sum")
+
+    title = "PPO Policy — P(Hit)"
+    title += " (Usable Ace)" if usable_ace else " (No Usable Ace)"
+    ax.set_title(title)
+
+    # ---- annotate probabilities ----
+    for i in range(len(player_sums)):
+        for j in range(len(dealer_cards)):
+            p = heatmap[i, j]
+            ax.text(
+                j,
+                i,
+                f"{p:.2f}",
+                ha="center",
+                va="center",
+                color="black",
+                fontsize=9
+            )
+
+    # Colorbar
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label("P(Hit)")
+
+    # ---- save ----
+    os.makedirs(save_dir, exist_ok=True)
+    path = os.path.join(save_dir, filename)
+    plt.tight_layout()
+    plt.savefig(path, dpi=200)
+    plt.close()
+
+    print(f"[PLOT] PPO strategy saved to {path}")
