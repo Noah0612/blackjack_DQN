@@ -33,7 +33,7 @@ class DQNAgent(BaseAgent):
         self.memory = deque(maxlen=self.config["MEMORY_SIZE"])
         self.epsilon = self.config["EPS_START"]
         
-        # Networks (Policy & Target)
+        # Initialize Policy Net and Target Net; sync weights
         self.model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model = DQN(self.state_dim, self.action_dim).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
@@ -49,7 +49,7 @@ class DQNAgent(BaseAgent):
         if not eval_mode and np.random.rand() <= self.epsilon:
             return random.randrange(self.action_dim)
         
-        # Normalize Input
+        # Expand dims: [3] -> [1, 3] for batch processing
         state_t = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         state_t = self.transform_state(state_t) 
         
@@ -85,10 +85,10 @@ class DQNAgent(BaseAgent):
                 state = next_state_proc
                 episode_reward += reward
             
+            # Sync Target Network weights every K episodes
             if e % target_update == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
-            # Log Metrics
             avg_loss = np.mean(episode_loss_list) if episode_loss_list else 0
             self.log_metrics(e, episode_reward, avg_loss, self.epsilon)
 
@@ -106,19 +106,21 @@ class DQNAgent(BaseAgent):
         states, actions, rewards, next_states, dones = zip(*batch)
         
         states = torch.FloatTensor(np.array(states)).to(self.device)
+        # Reshape vectors [B] -> [B, 1] to match matrix dims
         actions = torch.LongTensor(actions).unsqueeze(1).to(self.device)
         rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Normalize Batch
         states = self.transform_state(states)
         next_states = self.transform_state(next_states)
 
         with torch.no_grad():
+            # Get max Q-value across action dim (dim=1) -> [B, 1]
             next_q = self.target_model(next_states).max(1)[0].unsqueeze(1)
             target_q = rewards + (1 - dones) * self.config["GAMMA"] * next_q
         
+        # Gather Q-values at specific action indices -> [B, 1]
         current_q = self.model(states).gather(1, actions)
         
         loss = self.criterion(current_q, target_q)

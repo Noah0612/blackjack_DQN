@@ -15,12 +15,14 @@ class DuelingNetwork(nn.Module):
             nn.ReLU()
         )
         
+        # Stream 1: State Value V(s) -> Scalar
         self.value_stream = nn.Sequential(
             nn.Linear(64, 32),
             nn.ReLU(),
             nn.Linear(32, 1) 
         )
         
+        # Stream 2: Advantages A(s, a) -> Vector of size [Action_Dim]
         self.advantage_stream = nn.Sequential(
             nn.Linear(64, 32),
             nn.ReLU(),
@@ -31,21 +33,20 @@ class DuelingNetwork(nn.Module):
         features = self.feature_layer(x)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
+        
+        # Aggregate: Q = V + (A - mean(A)) across dim=1
         q_vals = values + (advantages - advantages.mean(dim=1, keepdim=True))
         return q_vals
 
 class DuelingDQNAgent(DQNAgent):
     def __init__(self, env, config):
-        # Initialize parent
         super().__init__(env, config)
         
-        # Override Model
+        # Override Model and Target Model with Dueling Architecture
         self.model = DuelingNetwork(self.state_dim, self.action_dim).to(self.device)
         
-        # Initialize Target Model for Dueling
         self.target_model = DuelingNetwork(self.state_dim, self.action_dim).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
         
-        # Re-attach optimizer
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config["LR"])
