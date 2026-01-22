@@ -9,6 +9,7 @@ import random
 from collections import deque
 from agents.base_agent import BaseAgent
 from config import PPO_CONFIG, DEVICE
+import os
 
 """ PPO algorithm implementation 
 We annotate the code with the lines corresponding to the steps in the PPO algorithm.
@@ -62,6 +63,15 @@ class PPOAgent(BaseAgent):
 
 
     def train(self):
+
+
+        #load preexisting policy. comment out if you want full training from scratch
+        #DEBUG
+        if os.path.exists("models/ppo.pth"):
+            self.load("models/ppo.pth")
+            print("Re using previous policy")
+            return
+
         print("Starting PPO Training...")
 
         for k in range(self.config["k_POLICY_UPDATES"]):
@@ -88,7 +98,7 @@ class PPOAgent(BaseAgent):
                 all_advantages = (all_advantages - all_advantages.mean()) / \
                      (all_advantages.std(unbiased=False) + 1e-8)
                 if self.writer: 
-                    self.writer.add_scalar("Debug/AdvStd", advantages.std().item(), self.total_env_steps)
+                    self.writer.add_scalar("Debug/AdvStd", advantages.std().item(), self.total_env_steps) 
             else:
                 all_advantages = all_advantages - all_advantages.mean()
 
@@ -154,10 +164,16 @@ class PPOAgent(BaseAgent):
                         self.config["VALUE_CLIP"]
                     )
 
+                    corr = torch.corrcoef(
+                        torch.stack([batch_advantages, batch_returns - value_pred_old])
+                    )[0,1]
+
                     value_loss = torch.max(
                         (value_pred - batch_returns) ** 2,
                         (value_clipped - batch_returns) ** 2
                     ).mean()
+
+
                     # Update value network
                     self.value_optimizer.zero_grad()
                     value_loss.backward()
@@ -180,9 +196,13 @@ class PPOAgent(BaseAgent):
                             "Clip_Fraction", clip_frac.item(), self.total_env_steps)
                         self.writer.add_scalar(
                             "Entropy", entropy.item(), self.total_env_steps)
+                        self.writer.add_scalar(
+                            "Debug/Corr", corr.item(), self.total_env_steps)
 
                 if stop :
                     break
+
+        self.save("ppo")
 
     """
     run the current policy on the environment to collect trajectories
@@ -336,3 +356,17 @@ class PPOAgent(BaseAgent):
             dist = torch.distributions.Categorical(logits=logits)
             action = dist.sample()
         return action.item()
+
+    def save(self, filename):
+        if not os.path.exists('models'):
+            os.makedirs('models')
+        
+        # Saves state_dict for PyTorch models or npy array for tables
+        torch.save(self.policy_net.state_dict(), f"models/{filename}.pth")
+        print(f"Policy saved to models/{filename}.pth")
+
+    def load(self, path):
+        checkpoint = torch.load(path)
+        self.policy_net.load_state_dict(checkpoint)
+        print(f"Policy load from checkpoint {path}")
+        

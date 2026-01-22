@@ -36,7 +36,7 @@ def plot_strategy(agent, agent_type):
                 state = (player_sum, dealer_val, int(is_soft))
                 
                 # Check agent type for Input format: Tensor vs Tuple
-                if agent_type in ['dqn', 'dueling', 'double_dqn', 'ppo']:
+                if agent_type in ['dqn', 'dueling', 'double_dqn']:
                     state_input = [state[0], state[1], state[2]]
                     
                     # Create Batch Tensor: [3] -> [1, 3]
@@ -132,12 +132,12 @@ def plot_ppo_strategy(
         for j, dc in enumerate(dealer_cards):
             state = np.array([ps, dc, int(usable_ace)], dtype=np.float32)
             state_t = torch.tensor(state).unsqueeze(0).to(device)
+            state_t = agent.transform_state(state_t)
 
             with torch.no_grad():
                 logits = agent.policy_net(state_t)
                 probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
 
-            # Convention: action 0 = Stand, 1 = Hit
             heatmap[i, j] = probs[1]   # P(Hit)
 
     # ---- plotting ----
