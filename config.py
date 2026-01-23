@@ -56,12 +56,12 @@ PPO_CONFIG = {
     "GAMMA": 0.99,
     "STATE_DIM": 3,
     "HIDDEN_DIM": 64,
-    "POLICY_LR": 3e-4,  # Learning rate for policy
-    "VALUE_LR": 6e-4,    # Learning rate for value function
+    "POLICY_LR": 1e-4,  # Learning rate for policy
+    "VALUE_LR": 1e-4,    # Learning rate for value function
     "LAMBDA": 0.95,     #parameter of GAE(lambda) advantage estimator
-    "ENTROPY_COEF": 0.015, # for entropy bonus
-    "k_POLICY_UPDATES": 1_000,  # small k in PPO algorithm
-    "K_UPDATE_EPOCHS": 4,  # number of epochs per update (reuse data)
+    "ENTROPY_COEF": 0.0, # for entropy bonus
+    "k_POLICY_UPDATES": 5_000,  # small k in PPO algorithm
+    "K_UPDATE_EPOCHS": 3,  # number of epochs per update (reuse data)
     "EPS_CLIP": 0.2,     # PPO Clipping parameter
     "VALUE_CLIP" : 0.2, #clipping value function 
     "MINIBATCH_SIZE": 512,  # Minibatch size for updates

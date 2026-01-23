@@ -1,12 +1,8 @@
-from math import e
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-import random
-from collections import deque
 from agents.base_agent import BaseAgent
 from config import PPO_CONFIG, DEVICE
 import os
@@ -81,6 +77,12 @@ class PPOAgent(BaseAgent):
 
             # collect trajectories using current policy --> step 3
             all_states, all_actions, all_rewards, all_old_log_probs, all_values = self._batch()
+
+            #compute and log average rewards for evaluation
+            all_rewards_cat = np.concatenate(all_rewards)
+            if self.writer:
+                self.writer.add_scalar("Eval/Rewards", all_rewards_cat.mean(), self.total_env_steps)
+
             # compute returns and advantages --> steps 4 and 5
             all_returns = []
             all_advantages = []
@@ -89,6 +91,7 @@ class PPOAgent(BaseAgent):
                 # advantages = self._compute_advantages(
                 #     returns, torch.cat(values))
                 advantages, returns = self._compute_gae(rewards, values)
+                advantages = torch.clamp(advantages, -5.0, 5.0)
                 all_returns.append(returns)
                 all_advantages.append(advantages)
 
@@ -302,7 +305,7 @@ class PPOAgent(BaseAgent):
         gamma = self.config["GAMMA"]
         lam = self.config["LAMBDA"]
 
-        # convert to tensor ONCE
+
         rewards = torch.tensor(rewards, dtype=torch.float32, device=values[0].device)
         values = torch.stack(values)  # shape [T+1]
 

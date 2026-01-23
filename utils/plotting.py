@@ -122,7 +122,7 @@ def plot_ppo_strategy(
         device = agent.device
 
     # Blackjack conventions (same as your existing plot)
-    player_sums = list(range(12, 22))      # 12 → 21
+    player_sums = list(range(12,22))
     dealer_cards = [2, 3, 4, 5, 6, 7, 8, 9, 10, 1]  # Ace = 1
 
     heatmap = np.zeros((len(player_sums), len(dealer_cards)))
