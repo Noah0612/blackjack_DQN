@@ -35,6 +35,7 @@ class PPOAgent(BaseAgent):
         hidden_dim = config["HIDDEN_DIM"]
 
         self.total_env_steps = 0
+        self.total_ep = 0
 
         #define the actor : policy
         policy_output_dim = env.action_space.n
@@ -81,7 +82,7 @@ class PPOAgent(BaseAgent):
             #compute and log average rewards for evaluation
             all_rewards_cat = np.concatenate(all_rewards)
             if self.writer:
-                self.writer.add_scalar("Eval/Rewards", all_rewards_cat.mean(), self.total_env_steps)
+                self.writer.add_scalar("Eval/Rewards", all_rewards_cat.mean(), self.total_ep)
 
             # compute returns and advantages --> steps 4 and 5
             all_returns = []
@@ -271,6 +272,7 @@ class PPOAgent(BaseAgent):
             all_rewards.append(rewards)
             all_log_probs.append(log_probs)
             all_values.append(values)
+            self.total_ep += 1
         self.total_env_steps += sum(len(r) for r in all_rewards)
         return all_states, all_actions, all_rewards, all_log_probs, all_values
 

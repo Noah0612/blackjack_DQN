@@ -9,39 +9,39 @@ ENABLE_TENSORBOARD = True
 # --- Agent Configurations ---
 
 DQN_CONFIG = {
-    "EPISODES": 50000,
-    "BATCH_SIZE": 256,
+    "EPISODES": 500_000,
+    "BATCH_SIZE": 512,
     "GAMMA": 1,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.995,
-    "LR": 0.003,
+    "EPS_DECAY": 0.999977,
+    "LR": 1e-4,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 500
+    "TARGET_UPDATE": 2_000
 }
 
 DUELING_CONFIG = {
-    "EPISODES": 50000,
-    "BATCH_SIZE": 64,
-    "GAMMA": 0.99,
+    "EPISODES": 500_000,
+    "BATCH_SIZE": 512,
+    "GAMMA": 1,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.9999,
-    "LR": 0.0001,
+    "EPS_DECAY": 0.999977,
+    "LR": 1e-4,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 10
+    "TARGET_UPDATE": 2_000
 }
 
 DOUBLE_DQN_CONFIG = {
-    "EPISODES": 10000,
-    "BATCH_SIZE": 64,
-    "GAMMA": 0.95,
+    "EPISODES": 500_000,
+    "BATCH_SIZE": 512,
+    "GAMMA": 1,
     "EPS_START": 1.0,
     "EPS_MIN": 0.01,
-    "EPS_DECAY": 0.9995,
-    "LR": 0.001,
+    "EPS_DECAY": 0.999977,
+    "LR": 1e-4,
     "MEMORY_SIZE": 100000,
-    "TARGET_UPDATE": 20
+    "TARGET_UPDATE": 2_000
 }
 
 VI_CONFIG = {
@@ -53,17 +53,17 @@ VI_CONFIG = {
 # --- 5. PPO Configuration ---
 # PPO is an On-Policy Gradient method 
 PPO_CONFIG = {
-    "GAMMA": 0.99,
+    "GAMMA": 1,
     "STATE_DIM": 3,
     "HIDDEN_DIM": 64,
     "POLICY_LR": 1e-4,  # Learning rate for policy
     "VALUE_LR": 1e-4,    # Learning rate for value function
-    "LAMBDA": 0.95,     #parameter of GAE(lambda) advantage estimator
+    "LAMBDA": 0.995,     #parameter of GAE(lambda) advantage estimator
     "ENTROPY_COEF": 0.0, # for entropy bonus
-    "k_POLICY_UPDATES": 5_000,  # small k in PPO algorithm
+    "k_POLICY_UPDATES": 10_000,  # small k in PPO algorithm
     "K_UPDATE_EPOCHS": 3,  # number of epochs per update (reuse data)
     "EPS_CLIP": 0.2,     # PPO Clipping parameter
-    "VALUE_CLIP" : 0.2, #clipping value function 
+    "VALUE_CLIP" : 10_000, #clipping value function 
     "MINIBATCH_SIZE": 512,  # Minibatch size for updates
     "TARGET_KL": 100000,    # Target KL divergence for early stopping (use big number to "disable")
     "EPISODES_PER_BATCH": 4_096  # number of steps to collect per update |D_k|
